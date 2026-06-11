@@ -12,11 +12,6 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  # Force uv to use a project-local cache directory in CI so the
-  # `actions/cache` step can key on it deterministically.
-  UV_CACHE_DIR: ${{ runner.temp }}/uv-cache
-
 jobs:
   lint:
     name: Lint (ruff)
@@ -29,8 +24,10 @@ jobs:
         with:
           version: latest
           enable-cache: true
-      - run: uv run --no-sync ruff check src/ tests/
-      - run: uv run --no-sync ruff format --check src/ tests/
+      - name: Lint
+        run: uv run --no-sync ruff check src/ tests/
+      - name: Format check
+        run: uv run --no-sync ruff format --check src/ tests/
 
   typecheck:
     name: Type-check (mypy)
@@ -43,8 +40,10 @@ jobs:
         with:
           version: latest
           enable-cache: true
-      - run: uv sync --all-extras --dev
-      - run: uv run --no-sync mypy src/airflow_mcp
+      - name: Sync dependencies
+        run: uv sync --all-extras --dev
+      - name: Type-check
+        run: uv run --no-sync mypy src/airflow_mcp
 
   test:
     name: Test (Python ${{ matrix.python-version }})
