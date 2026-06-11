@@ -2,198 +2,144 @@
 
 [![CI](https://github.com/inav/airflow-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/inav/airflow-mcp/actions/workflows/ci.yml)
 [![Release](https://github.com/inav/airflow-mcp/actions/workflows/release.yml/badge.svg)](https://github.com/inav/airflow-mcp/actions/workflows/release.yml)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue)](https://www.python.org)
+[![Code style: ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![Type-checked: mypy](https://img.shields.io/badge/type--checked-mypy-blue)](https://mypy.readthedocs.io)
 
-A Model Context Protocol (MCP) server for **Apache Airflow 2.x and 3.x**,
-built on the [official MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk).
+A [Model Context Protocol](https://modelcontextprotocol.io) (MCP) server for
+**Apache Airflow 2.x and 3.x**, built on the
+[official MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk).
 
-It exposes ~24 tools that an LLM agent (Claude Desktop, Cursor, Cline, ...)
-can call to inspect DAGs, trigger runs, fetch task logs, manage variables,
-read pools, and check cluster health. Talks both `/api/v1` (legacy) and
-`/api/v2` (stable on 2.4+), and picks the right one for your target
-version automatically.
+Talk to your Airflow from Claude Desktop, Cursor, Cline, or any MCP-aware
+agent — inspect DAGs, trigger runs, fetch task logs, manage variables, read
+pools, check cluster health. About two dozen tools, safe by default, sized
+for LLM context windows.
 
-## Features
+---
 
-- **Multi-version** — targets Airflow 2.2.x through 3.x. Set
-  `AIRFLOW_TARGET_VERSION=2.2.5` / `2.9.0` / `3.0.0` etc., or leave
-  as `auto` to probe at startup. The MCP picks the correct API path
+## What you get
+
+- **Multi-version** — Airflow 2.2 through 3.x. Point it at any version
+  (`AIRFLOW_TARGET_VERSION=2.2.5`, `2.9.0`, `3.0.0`, …) or leave as
+  `auto` to probe the server. The MCP picks the right API path
   (`/api/v1` vs `/api/v2`) and applies the right response shims
-  (`execution_date` ↔ `logical_date`, `set_task_instance_state`
-  endpoint shape, etc.).
+  (`execution_date` ↔ `logical_date`, `set_task_instance_state` endpoint
+  shape, etc.).
 - **Read-only by default** — mutating tools (`trigger_*`, `set_*`,
-  `delete_*`, `pause_*`, `clear_*`) are hidden unless you opt in.
-  Set `AIRFLOW_READ_ONLY=false` to expose them, or `AIRFLOW_ENABLED_TOOLS`
-  for a custom allowlist.
-- **Token-optimised** — compact JSON output, null/empty fields stripped,
-  small default page sizes (20), and aggressive log truncation
-  (default 4 KB / 200 lines, tail only). The model never has to wade
-  through Airflow's verbose response payloads.
-- **Comprehensive** — DAGs, runs, task instances, variables, pools, system.
-- **Async-first** — built on `httpx.AsyncClient` with a single shared
-  connection pool across the MCP lifetime.
-- **Resilient** — exponential-backoff retries on 408/425/429/5xx for
-  idempotent methods; typed error hierarchy (`AirflowNotFoundError`,
+  `delete_*`, `pause_*`, `clear_*`) are hidden until you opt in with
+  `AIRFLOW_READ_ONLY=false` or a custom `AIRFLOW_ENABLED_TOOLS` allowlist.
+- **Token-conscious** — compact JSON, null/empty fields stripped, small
+  default page sizes (20), aggressive log truncation (4 KB / 200 lines,
+  tail only). Models don't have to wade through Airflow's verbose
+  payloads.
+- **Resilient** — exponential backoff on 408/425/429/5xx for idempotent
+  methods; typed error hierarchy (`AirflowNotFoundError`,
   `AirflowAuthError`, `AirflowAPIError`).
-- **Safe by default** — `list_variables` returns keys only, never values;
+- **Safe by default** — `list_variables` returns keys only;
   `clear_dag_run` defaults to `dry_run=True`.
-- **Both auth modes** — auto-detect: `AIRFLOW_TOKEN` if set, else basic auth.
+- **Both auth modes** — bearer token if `AIRFLOW_TOKEN` is set, otherwise
+  basic auth.
+
+---
 
 ## Install
 
-The project uses [uv](https://docs.astral.sh/uv/) for everything — no
-manual `venv` juggling, no system-level `pip install` needed. If you don't
-have it yet:
+### 1. Install `uv` (once per machine)
+
+`uv` is a tiny Rust binary that handles Python versions, virtual envs,
+and dependency resolution in one tool. It's the only thing you install
+globally — everything else lives inside the project's `.venv`.
 
 ```bash
 # macOS / Linux / WSL
 curl -LsSf https://astral.sh/uv/install.sh | sh
-# Windows
+
+# Windows (PowerShell)
 powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
-Then, from the repo root:
+That's it. No `python -m venv`, no `pip install`, no `PATH` fiddling.
+
+### 2. Open the project in VS Code
+
+> This is the path you want. VS Code handles everything — the venv,
+> the dependencies, the test runner, the linter, the type checker. You
+> never type `uv` at the command line.
+
+**Install the official Astral `uv` VS Code extension** (Astral
+[maintains it](https://marketplace.visualstudio.com/items?itemName=charliermarsh.ruff);
+the same one that ships the linter and formatter). It teaches VS Code
+to discover the project's `.venv` and the right Python interpreter
+automatically.
+
+Then:
+
+1. **Clone the repo** (or download the source tarball from the
+   [v0.2.0 release](https://github.com/inav/airflow-mcp/releases/tag/v0.2.0)).
+2. **Open the folder** in VS Code
+   (`File → Open Folder…`).
+3. When the prompt *"We noticed a new virtual environment was created. Do
+   you want to use it?"* appears, click **Yes**. (Or: open the
+   Command Palette, `Python: Select Interpreter`, pick the
+   `.venv/bin/python` it just made.)
+4. Wait for the status bar to read `Python 3.12 ('.venv': venv)` —
+   the extension will have already run the equivalent of
+   `uv sync` for you in the background.
+5. **Done.** Open `src/airflow_mcp/server.py`, hit ▶️ next to `main`,
+   and the MCP server starts on stdio.
+
+You'll also get:
+
+- ✅ **Inline errors** from `ruff` (red squigglies, quick fixes via
+  ⌘.)
+- ✅ **Format on save** (also from `ruff`)
+- ✅ **Type hints** from `mypy` (install the
+  [Mypy extension](https://marketplace.visualstudio.com/items?itemName=ms-python.mypy-vscode)
+  for inline type errors)
+- ✅ **Test runner** in the Test Explorer (the Python extension finds
+  `pytest` automatically)
+
+If you ever need a terminal in the venv, VS Code's integrated terminal
+activates it for you — no `source .venv/bin/activate` needed.
+
+### 3. From the command line (optional)
+
+If you don't use VS Code, or just want a quick sanity check from a
+shell, the CLI is the same `uv` commands:
 
 ```bash
-# Resolves and pins every dependency into uv.lock, then installs the
-# project (including the [dev] extras) into a project-local .venv.
-uv sync --all-extras --dev
-
-# Run the MCP server from the venv without ever activating it.
-uv run airflow-mcp
+# Inside the cloned repo
+uv sync --all-extras --dev        # creates .venv and installs everything
+uv run pytest                     # run the test suite
+uv run ruff check src/ tests/     # lint
+uv run ruff format src/ tests/    # format
+uv run mypy src/airflow_mcp       # type-check
+uv run airflow-mcp                # run the server
 ```
 
-To install the published package into an existing project:
+`uv run …` is the equivalent of activating the venv and running the
+command — it works from any directory inside the project tree.
+
+### 4. Use it as a library
 
 ```bash
+# From a git tag (works without PyPI)
+uv add "airflow-mcp @ git+https://github.com/inav/airflow-mcp@v0.2.0"
+# or, once published to PyPI
 uv add airflow-mcp
-# or, classic pip in a venv you manage yourself:
+# or, classic pip
 pip install airflow-mcp
 ```
 
-Tested with Python 3.10 / 3.11 / 3.12.
+---
 
-## Configuration
+## Wire it into an MCP client
 
-All settings come from environment variables (or a `.env` file at the
-working directory):
+The server speaks stdio by default. Each client has a slightly different
+config spot.
 
-| Variable              | Required | Default                  | Notes                                      |
-|-----------------------|----------|--------------------------|--------------------------------------------|
-| `AIRFLOW_BASE_URL`    | no       | `http://localhost:8080`  | Airflow **webserver** base URL             |
-| `AIRFLOW_TARGET_VERSION` | no    | `auto`                   | Target Airflow version, e.g. `2.2.5`, `2.9.0`, `3.0.0`. `auto` probes the server. |
-| `AIRFLOW_API_VERSION` | no       | `auto`                   | Force `v1` / `v2` regardless of target.    |
-| `AIRFLOW_TOKEN`       | one of   | —                        | Bearer token (wins over basic auth)        |
-| `AIRFLOW_USERNAME`    | one of   | —                        | Required if `AIRFLOW_TOKEN` is unset       |
-| `AIRFLOW_PASSWORD`    | one of   | —                        | Required if `AIRFLOW_TOKEN` is unset       |
-| `AIRFLOW_READ_ONLY`   | no       | `true`                   | Hide mutating tools when true              |
-| `AIRFLOW_ENABLED_TOOLS` | no     | —                        | CSV allowlist; overrides `AIRFLOW_READ_ONLY` |
-| `AIRFLOW_LIST_PAGE_DEFAULT` | no | `20`                    | Default list page size                     |
-| `AIRFLOW_LIST_PAGE_MAX` | no    | `100`                    | Hard cap on list page size                 |
-| `AIRFLOW_LOG_MAX_BYTES` | no    | `4096`                   | Soft cap on log bytes per call             |
-| `AIRFLOW_LOG_MAX_LINES` | no    | `200`                    | Max log lines per call (tail only)         |
-| `AIRFLOW_TIMEOUT`     | no       | `30`                     | Per-request HTTP timeout (s)               |
-| `AIRFLOW_VERIFY_SSL`  | no       | `true`                   | Set `false` for self-signed certs          |
-| `AIRFLOW_MAX_RETRIES` | no       | `3`                      | Retries on transient HTTP errors           |
-| `AIRFLOW_MCP_LOG_LEVEL` | no     | `INFO`                   | `DEBUG` / `INFO` / `WARNING` / `ERROR`     |
-| `AIRFLOW_MCP_TRANSPORT` | no     | `stdio`                  | `stdio` or `sse`                           |
-
-## Supported Airflow versions
-
-| Airflow   | API path        | Date field              | `set_task_state` endpoint           |
-|-----------|-----------------|-------------------------|-------------------------------------|
-| 2.2.x     | `/api/v1`       | `execution_date`        | `PATCH /taskInstances/{id}`         |
-| 2.3.x     | `/api/v1`       | `execution_date`        | `PATCH /taskInstances/{id}`         |
-| 2.4.x     | `/api/v2` (default; v1 still works) | `logical_date` (+ `execution_date` alias) | `POST /taskInstances/{id}/state`    |
-| 2.5.x – 2.9.x | `/api/v2`   | `logical_date` (+ alias)| `POST /taskInstances/{id}/state`    |
-| 2.10.x    | `/api/v2`       | `logical_date` (+ alias)| `POST /taskInstances/{id}/state`    |
-| 3.0.x     | `/api/v2` (v1 removed) | `logical_date` only | `POST /taskInstances/{id}/state`    |
-
-The MCP normalises responses for you — `get_dag_run` always returns both
-`logical_date` and `execution_date` keys (the one Airflow didn't include
-is filled in from the other). `trigger_dag_run` accepts either key in
-the payload and renames it for the target version.
-
-Set the target explicitly for best behaviour:
-
-```bash
-export AIRFLOW_TARGET_VERSION=2.2.5   # pick the right API path
-export AIRFLOW_TARGET_VERSION=2.9.0
-export AIRFLOW_TARGET_VERSION=3.0.0
-export AIRFLOW_TARGET_VERSION=auto    # probe at startup
-```
-
-Or pin the API path while keeping the version's quirks:
-
-```bash
-export AIRFLOW_TARGET_VERSION=2.7.0
-export AIRFLOW_API_VERSION=v1         # use v1 even though v2 is the default
-```
-
-Use the `get_capabilities` tool at runtime to see what was resolved:
-
-```
-get_capabilities
-→ {"target_version":"2.9.0","api_version":"v2",
-   "uses_logical_date":true,"set_task_state_method":"POST",...}
-```
-
-### Read-only mode
-
-By default only the following tools are registered (15 total):
-
-`get_health`, `get_version`, `list_dags`, `get_dag`, `list_dag_runs`,
-`get_dag_run`, `list_tasks`, `get_task`, `list_task_instances`,
-`get_task_instance`, `get_task_logs`, `list_variables`, `get_variable`,
-`list_pools`, `get_pool`.
-
-To expose mutating tools (`pause_dag`, `unpause_dag`, `trigger_dag_run`,
-`delete_dag_run`, `clear_dag_run`, `set_task_instance_state`,
-`set_variable`, `delete_variable`) set `AIRFLOW_READ_ONLY=false`.
-
-For a custom allowlist, set `AIRFLOW_ENABLED_TOOLS` to a comma-separated
-list of tool names. The allowlist **overrides** `AIRFLOW_READ_ONLY` — if
-you name a mutating tool there, you get it.
-
-```bash
-# Just the safe basics
-export AIRFLOW_ENABLED_TOOLS=list_dags,get_dag,list_dag_runs,get_health
-
-# Explicit opt-in to a single mutating tool (still read-only otherwise)
-export AIRFLOW_ENABLED_TOOLS=list_dags,get_dag,trigger_dag_run
-
-# Full access
-export AIRFLOW_READ_ONLY=false
-```
-
-### Example: basic auth against a local Airflow
-
-```bash
-export AIRFLOW_BASE_URL=http://localhost:8080
-export AIRFLOW_USERNAME=airflow
-export AIRFLOW_PASSWORD=airflow
-```
-
-### Example: API token (e.g. MWAA, Astronomer)
-
-```bash
-export AIRFLOW_BASE_URL=https://my-env.astronomer.run
-export AIRFLOW_TOKEN=xxxxxxxxxxxxxxxx
-```
-
-## Run
-
-```bash
-# stdio (default — for Claude Desktop, Cursor, Cline, ...)
-airflow-mcp
-
-# SSE transport (HTTP)
-airflow-mcp --transport sse
-
-# debug logging
-airflow-mcp --log-level DEBUG
-```
-
-## Wire it into Claude Desktop
+### Claude Desktop
 
 Edit `~/Library/Application Support/Claude/claude_desktop_config.json`
 (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows):
@@ -213,96 +159,251 @@ Edit `~/Library/Application Support/Claude/claude_desktop_config.json`
 }
 ```
 
+Restart Claude Desktop — the tools appear under the 🔨 icon.
+
+### Cursor
+
+`Cursor → Settings → Cursor Settings → MCP → Add new global MCP server`.
+Same JSON shape as above.
+
+### Cline / Continue / other VS Code MCP clients
+
+Each one has its own MCP config — usually a JSON file in the extension's
+data directory. Point it at the `airflow-mcp` command with the env vars
+you need.
+
+> **Heads up:** the MCP client invokes `airflow-mcp` directly, so that
+> command must be on `PATH`. If you only have `uv` and not the
+> installed package, use `command: "uv"` and
+> `args: ["run", "--with", "airflow-mcp @ git+https://github.com/inav/airflow-mcp@v0.2.0", "airflow-mcp"]`
+> instead.
+
+---
+
+## Configuration
+
+Every setting is an environment variable, also readable from a `.env`
+file in the working directory. `cp .env.example .env` to start.
+
+| Variable                    | Required | Default                 | Notes                                                                |
+|-----------------------------|----------|-------------------------|----------------------------------------------------------------------|
+| `AIRFLOW_BASE_URL`          | no       | `http://localhost:8080` | Airflow **webserver** base URL                                       |
+| `AIRFLOW_TARGET_VERSION`    | no       | `auto`                  | Target Airflow version, e.g. `2.2.5`, `2.9.0`, `3.0.0`. `auto` probes at startup. |
+| `AIRFLOW_API_VERSION`       | no       | `auto`                  | Force `v1` / `v2` regardless of target.                             |
+| `AIRFLOW_TOKEN`             | one of   | —                       | Bearer token (wins over basic auth)                                 |
+| `AIRFLOW_USERNAME`          | one of   | —                       | Required if `AIRFLOW_TOKEN` is unset                                |
+| `AIRFLOW_PASSWORD`          | one of   | —                       | Required if `AIRFLOW_TOKEN` is unset                                |
+| `AIRFLOW_READ_ONLY`         | no       | `true`                  | Hide mutating tools when true                                       |
+| `AIRFLOW_ENABLED_TOOLS`     | no       | —                       | CSV allowlist; overrides `AIRFLOW_READ_ONLY`                        |
+| `AIRFLOW_LIST_PAGE_DEFAULT` | no       | `20`                    | Default list page size                                              |
+| `AIRFLOW_LIST_PAGE_MAX`     | no       | `100`                   | Hard cap on list page size                                          |
+| `AIRFLOW_LOG_MAX_BYTES`     | no       | `4096`                  | Soft cap on log bytes per call                                      |
+| `AIRFLOW_LOG_MAX_LINES`     | no       | `200`                   | Max log lines per call (tail only)                                  |
+| `AIRFLOW_TIMEOUT`           | no       | `30`                    | Per-request HTTP timeout (seconds)                                  |
+| `AIRFLOW_VERIFY_SSL`        | no       | `true`                  | Set `false` for self-signed certs                                   |
+| `AIRFLOW_MAX_RETRIES`       | no       | `3`                     | Retries on transient HTTP errors                                    |
+| `AIRFLOW_MCP_LOG_LEVEL`     | no       | `INFO`                  | `DEBUG` / `INFO` / `WARNING` / `ERROR`                              |
+| `AIRFLOW_MCP_TRANSPORT`     | no       | `stdio`                 | `stdio` or `sse`                                                    |
+
+### Read-only mode
+
+By default only these 15 tools are registered:
+
+`get_health`, `get_version`, `get_capabilities`, `list_dags`, `get_dag`,
+`list_dag_runs`, `get_dag_run`, `list_tasks`, `get_task`,
+`list_task_instances`, `get_task_instance`, `get_task_logs`,
+`list_variables`, `get_variable`, `list_pools`, `get_pool`.
+
+To expose mutating tools (`pause_dag`, `unpause_dag`, `trigger_dag_run`,
+`delete_dag_run`, `clear_dag_run`, `set_task_instance_state`,
+`set_variable`, `delete_variable`) set `AIRFLOW_READ_ONLY=false`.
+
+For a custom allowlist, set `AIRFLOW_ENABLED_TOOLS` to a comma-separated
+list. The allowlist **overrides** `AIRFLOW_READ_ONLY` — name a mutating
+tool there and you get it.
+
+```bash
+# Just the safe basics
+export AIRFLOW_ENABLED_TOOLS=list_dags,get_dag,list_dag_runs,get_health
+
+# Mix: read-only + one mutating tool (allowlist overrides read-only)
+export AIRFLOW_ENABLED_TOOLS=list_dags,get_dag,trigger_dag_run
+
+# Full access
+export AIRFLOW_READ_ONLY=false
+```
+
+---
+
+## Supported Airflow versions
+
+| Airflow     | API path                          | Date field                          | `set_task_state` endpoint        |
+|-------------|-----------------------------------|-------------------------------------|----------------------------------|
+| 2.2.x       | `/api/v1`                         | `execution_date`                    | `PATCH /taskInstances/{id}`      |
+| 2.3.x       | `/api/v1`                         | `execution_date`                    | `PATCH /taskInstances/{id}`      |
+| 2.4.x       | `/api/v2` (v1 still works)        | `logical_date` (+ alias)            | `POST /taskInstances/{id}/state` |
+| 2.5 – 2.9.x | `/api/v2`                         | `logical_date` (+ alias)            | `POST /taskInstances/{id}/state` |
+| 2.10.x      | `/api/v2`                         | `logical_date` (+ alias)            | `POST /taskInstances/{id}/state` |
+| 3.0.x       | `/api/v2` (v1 removed)            | `logical_date` only                 | `POST /taskInstances/{id}/state` |
+
+The MCP normalises responses — `get_dag_run` always returns both
+`logical_date` and `execution_date` keys (the one Airflow didn't include
+is filled in from the other). `trigger_dag_run` accepts either key in
+the payload and renames it for the target version.
+
+Use the `get_capabilities` tool at runtime to see what was resolved:
+
+```
+get_capabilities
+→ {"target_version":"2.9.0","api_version":"v2",
+   "uses_logical_date":true,"set_task_state_method":"POST",...}
+```
+
+---
+
 ## Tools
 
-| Tool                       | Mode        | What it does                                                          |
-|----------------------------|-------------|------------------------------------------------------------------------|
-| `get_health`               | read-only   | Probe `/health` on the webserver                                       |
-| `get_version`              | read-only   | Airflow version (handy to confirm 2.x vs 3.x)                         |
-| `get_capabilities`         | read-only   | Report the resolved target version + API path + capability flags      |
-| `list_dags`                | read-only   | List DAGs (filter by active / pattern / tags)                         |
-| `get_dag`                  | read-only   | Get full DAG definition                                                |
-| `pause_dag` / `unpause_dag`| **mutating**| Toggle scheduling                                                      |
-| `list_dag_runs`            | read-only   | List runs of a DAG (filter by state, date range — `logical_*` or `execution_*`) |
-| `get_dag_run`              | read-only   | Get a single run                                                       |
-| `trigger_dag_run`          | **mutating**| Trigger a manual run, with optional `conf` and `note`                 |
-| `delete_dag_run`           | **mutating**| Delete a run (destructive)                                             |
-| `clear_dag_run`            | **mutating**| Clear task instances (`dry_run=True` by default)                      |
-| `list_tasks`               | read-only   | List tasks in a DAG                                                    |
-| `get_task`                 | read-only   | Get a single task definition                                           |
-| `list_task_instances`      | read-only   | List TIs of a run (filter by state)                                    |
-| `get_task_instance`        | read-only   | Get one TI                                                             |
-| `get_task_logs`            | read-only   | Fetch logs (truncated by default; `full_content=True` for the lot)    |
-| `set_task_instance_state`  | **mutating**| Force a TI to `success` / `failed` / `skipped` / `up_for_retry`        |
-| `list_variables`           | read-only   | List variable **keys only** (safe)                                    |
-| `get_variable`             | read-only   | Read a single variable's value                                         |
-| `set_variable`             | **mutating**| Create or update a variable                                            |
-| `delete_variable`          | **mutating**| Delete a variable                                                      |
-| `list_pools`               | read-only   | List worker pools                                                      |
-| `get_pool`                 | read-only   | Get one pool                                                           |
+| Tool                          | Mode         | What it does                                                            |
+|-------------------------------|--------------|-------------------------------------------------------------------------|
+| `get_health`                  | read-only    | Probe `/health` on the webserver                                        |
+| `get_version`                 | read-only    | Airflow version (handy to confirm 2.x vs 3.x)                           |
+| `get_capabilities`            | read-only    | Resolved target version + API path + capability flags                   |
+| `list_dags`                   | read-only    | List DAGs (filter by active / pattern / tags)                           |
+| `get_dag`                     | read-only    | Full DAG definition                                                     |
+| `pause_dag` / `unpause_dag`   | **mutating** | Toggle scheduling                                                       |
+| `list_dag_runs`               | read-only    | List runs of a DAG (`logical_*` or `execution_*` date filters)          |
+| `get_dag_run`                 | read-only    | One run                                                                |
+| `trigger_dag_run`             | **mutating** | Manual run, with `conf` and `note`                                      |
+| `delete_dag_run`              | **mutating** | Delete a run (destructive)                                              |
+| `clear_dag_run`               | **mutating** | Clear task instances (`dry_run=True` by default)                        |
+| `list_tasks`                  | read-only    | Tasks in a DAG                                                          |
+| `get_task`                    | read-only    | One task definition                                                     |
+| `list_task_instances`         | read-only    | TIs of a run (filter by state)                                          |
+| `get_task_instance`           | read-only    | One TI                                                                 |
+| `get_task_logs`               | read-only    | Logs (truncated by default; `full_content=True` for everything)         |
+| `set_task_instance_state`     | **mutating** | Force a TI to `success` / `failed` / `skipped` / `up_for_retry`         |
+| `list_variables`              | read-only    | Variable **keys only** (safe)                                           |
+| `get_variable`                | read-only    | One variable's value                                                    |
+| `set_variable`                | **mutating** | Create or update a variable                                             |
+| `delete_variable`             | **mutating** | Delete a variable                                                       |
+| `list_pools`                  | read-only    | Worker pools                                                            |
+| `get_pool`                    | read-only    | One pool                                                                |
 
-## Airflow version notes
+---
 
-- **2.2.x – 2.3.x**: only `/api/v1` is available. `execution_date` is the
-  canonical run date. `set_task_instance_state` is a `PATCH` on the task
-  instance. Both work natively; no shims needed.
-- **2.4.0+**: `/api/v2` is the recommended path; v1 still works. Both
-  `logical_date` and `execution_date` are present in v2 responses (the
-  former is canonical, the latter is an alias kept for back-compat).
-  `set_task_instance_state` moved to `POST /taskInstances/{id}/state`.
-- **3.0.x**: `/api/v1` is removed. `logical_date` is the only date field.
-- The experimental API under `/api/experimental` is **not** used here.
-- The webserver must be configured with an auth backend that accepts
-  basic auth *or* a static token (e.g. `airflow.api.auth.backend.basic_auth`
-  for 2.x, or FAB auth for 3.x). The MCP server doesn't configure
-  Airflow — it just speaks the protocol.
+## How it works
+
+```
+┌────────────────┐    stdio / sse     ┌──────────────────┐    httpx     ┌────────────┐
+│  MCP client    │ ◀───────────────▶ │   airflow-mcp    │ ◀──────────▶ │  Airflow   │
+│  (Claude,      │   JSON-RPC        │   (this server)  │  /api/v1 or  │  webserver │
+│   Cursor, …)   │                   │                  │   /api/v2    │            │
+└────────────────┘                   └──────────────────┘              └────────────┘
+                                            │
+                                            ├── versioning.py    version matrix → API path + shims
+                                            ├── client.py        async httpx, retries, version-aware
+                                            ├── config.py        pydantic-settings, env-driven
+                                            ├── errors.py        typed exception hierarchy
+                                            └── tools/           one module per Airflow resource
+```
+
+- **`server.py`** — FastMCP entrypoint; loads `Settings`, resolves
+  capabilities, then calls `register_all` to wire up the tool modules.
+- **`client.py`** — async `httpx.AsyncClient` wrapper, one connection
+  pool for the server's lifetime. Retries 408/425/429/5xx with
+  exponential backoff for idempotent methods.
+- **`versioning.py`** — the core "magic". Given a target version
+  (`2.2.5`, `2.9.0`, `3.0.0`, …) or `auto`, it picks `/api/v1` vs
+  `/api/v2` and a set of capability flags (`uses_logical_date`,
+  `set_task_state_method`, …) that the rest of the code branches on.
+- **`tools/`** — one module per Airflow resource
+  (`dags`, `dag_runs`, `tasks`, `variables`, `pools`, `system`).
+  Each `register(mcp, settings, *, include_mutating, allowlist)`
+  adds its tools to the FastMCP server and filters by mode.
+
+---
 
 ## Development
 
+### In VS Code (recommended)
+
+The flow is just "open the folder". The `uv` extension handles sync,
+the Python Test Explorer finds `pytest`, the `ruff` extension lints and
+formats on save, and the `mypy` extension shows type errors inline.
+
+### In a terminal
+
 ```bash
-# Bring up the dev environment (uses uv.lock, no surprises).
 uv sync --all-extras --dev
-
-# Run the test suite (62 tests, ~12s).
-uv run pytest
-
-# Lint + format (ruff bundles both).
+uv run pytest                  # 62 tests, ~12s
 uv run ruff check src/ tests/
-uv run ruff format src/ tests/
-
-# Type-check (mypy strict-ish, see pyproject.toml for the per-code disables).
+uv run ruff format --check src/ tests/
 uv run mypy src/airflow_mcp
+```
 
-# All-in-one:
+The all-in-one quality gate (what CI runs):
+
+```bash
 uv run ruff check src/ tests/ && \
   uv run ruff format --check src/ tests/ && \
   uv run mypy src/airflow_mcp && \
   uv run pytest
 ```
 
+### Project layout
+
+```
+airflow-mcp/
+├── pyproject.toml          # hatch-vcs, ruff, mypy, pytest, coverage config
+├── conftest.py             # pytest bootstrap; make src/ importable
+├── .python-version         # pins Python 3.12 for uv and the test matrix
+├── uv.lock                 # full dependency graph (committed)
+├── .env.example            # every config var, with sensible defaults
+├── src/airflow_mcp/
+│   ├── __init__.py         # version comes from hatch-vcs at build time
+│   ├── config.py           # pydantic-settings, env-driven
+│   ├── errors.py           # typed exception hierarchy
+│   ├── versioning.py       # version matrix + capability resolver
+│   ├── client.py           # async httpx wrapper, retries, version-aware
+│   ├── server.py           # FastMCP entrypoint + CLI
+│   └── tools/
+│       ├── _helpers.py     # JSON formatting, ctx helpers, error decorator
+│       ├── system.py       # health / version / capabilities
+│       ├── dags.py
+│       ├── dag_runs.py
+│       ├── tasks.py
+│       ├── variables.py
+│       └── pools.py
+└── tests/
+    ├── test_smoke.py       # config + wiring + read-only filter
+    ├── test_client.py      # mocked httpx transport (v1 + v2)
+    └── test_versioning.py  # version resolution + auto-detect
+```
+
+---
+
 ## Versioning & releases
 
 The package version is **derived from git tags** by
-[`hatch-vcs`](https://github.com/jdillard/hatch-vcs) — there is no version
-string to bump in `pyproject.toml` or `__init__.py`. Just cut a tag:
+[`hatch-vcs`](https://github.com/jdillard/hatch-vcs) — there is no
+version string to bump in `pyproject.toml` or `__init__.py`. The tag
+*is* the version.
 
 ```bash
-# Pick one of:
-git tag v0.2.0
+git tag v0.2.0          # pick one
 git tag v0.2.1
 git tag v0.3.0
 
-git push origin --tags
+git push origin --tags  # fires the release workflow
 ```
 
-Pushing a `vX.Y.Z` tag triggers the
-[release workflow](.github/workflows/release.yml), which:
+Pushing a `vX.Y.Z` tag triggers [`.github/workflows/release.yml`](.github/workflows/release.yml):
 
-1. Builds the sdist and wheel.
-2. Publishes to PyPI via
+1. Build the sdist and wheel.
+2. Publish to PyPI via
    [trusted publishing](https://docs.pypi.org/trusted-publishers/) (OIDC,
    no API token to manage).
-3. Creates a GitHub Release with auto-generated notes.
+3. Create a GitHub Release with auto-generated notes.
 
 Versions in between tags (commits on `main`) automatically get a
 `X.Y.Z.devN+gHASH.dDATE` suffix, so every dev install is uniquely
@@ -317,36 +418,62 @@ Before the first release, configure trusted publishing at
 - **Workflow file**: `release.yml`
 - **Environment name**: `pypi`
 
-Then create the `pypi` environment in your repo's Settings → Environments
-so the release job can request it.
+Then create the `pypi` environment in
+**Settings → Environments** so the release job can request it.
 
-## Project layout
+### Semver policy
 
-```
-airflow-mcp/
-├── pyproject.toml
-├── conftest.py
-├── src/airflow_mcp/
-│   ├── __init__.py
-│   ├── config.py         # pydantic-settings, env-driven
-│   ├── errors.py         # typed exception hierarchy
-│   ├── versioning.py     # version matrix + capability resolver
-│   ├── client.py         # async httpx wrapper, retries, version-aware
-│   ├── server.py         # FastMCP entrypoint + CLI
-│   └── tools/
-│       ├── _helpers.py   # JSON formatting, ctx helpers, error decorator
-│       ├── system.py     # health / version / capabilities
-│       ├── dags.py
-│       ├── dag_runs.py
-│       ├── tasks.py
-│       ├── variables.py
-│       └── pools.py
-└── tests/
-    ├── test_smoke.py     # config + wiring + read-only filter
-    ├── test_client.py    # mocked HTTPX transport (v1 + v2)
-    └── test_versioning.py # version resolution + auto-detect
-```
+Until `v1.0.0`, the minor line (`v0.2.x` → `v0.3.0`) is also where
+breaking changes go, with a CHANGELOG note. After `v1.0.0`:
+
+- **Patch** (`vX.Y.Z` → `vX.Y.Z+1`) — bug fixes only, no public-API change
+- **Minor** (`vX.Y` → `vX.(Y+1)`) — additive features, no breaking change
+- **Major** (`vX` → `v(X+1)`) — breaking changes to MCP tool signatures,
+  settings, or environment variables
+
+---
+
+## Troubleshooting
+
+**"Python was not found" / VS Code status bar shows the system Python, not `.venv`.**
+
+The `uv` extension didn't sync yet. Run
+`Python: Reset Workspace Trust → Reload` in the Command Palette, or
+`> uv: Sync` if the extension exposes it. Or, from a terminal:
+`uv sync`.
+
+**`uv run` says "No project found" / `.venv` doesn't exist.**
+
+You're not in the repo root. `cd` into the folder that contains
+`pyproject.toml`.
+
+**Tools appear in the client but every call returns an auth error.**
+
+The MCP client launches the server with whatever env vars are in the
+config (or no env vars at all). Put the full env block in the MCP
+client config, not in a `.env` file the client can't see.
+
+**`AIRFLOW_TARGET_VERSION=auto` resolves to the wrong version.**
+
+Either set it explicitly, or upgrade your webserver to a version where
+`/api/v2/version` is accessible to the auth user (some 2.4 / 2.5
+releases lock that endpoint behind admin).
+
+**CI is red on `Lint (ruff)`.**
+
+Run `uv run ruff check src/ tests/` locally and fix what it shows.
+The CI lint job runs against the synced `.venv`, so make sure
+`uv sync` works for you first.
+
+**CI says `Unrecognized named-value: 'runner.temp'`.**
+
+The workflow file references `runner.temp` at the top level — that's
+not valid in GitHub Actions (that context is step-scoped). Edit
+`.github/workflows/ci.yml` and move any `runner.*` references into a
+step's `env:` block.
+
+---
 
 ## License
 
-Apache-2.0
+[Apache-2.0](LICENSE)
