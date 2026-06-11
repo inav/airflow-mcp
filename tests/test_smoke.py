@@ -20,7 +20,6 @@ from airflow_mcp.server import build_server
 from airflow_mcp.tools import register_all
 from airflow_mcp.tools._helpers import _strip_empties, to_compact, to_json
 
-
 # ---------------------------------------------------------------------------
 # Settings
 # ---------------------------------------------------------------------------
@@ -182,9 +181,7 @@ def test_build_server_full_mode_includes_everything() -> None:
     server = build_server(read_only=False)
     names = _tool_names(server)
     assert _READ_ONLY_TOOLS.issubset(names)
-    assert _MUTATING_TOOLS.issubset(names), (
-        f"missing mutating tools: {_MUTATING_TOOLS - names}"
-    )
+    assert _MUTATING_TOOLS.issubset(names), f"missing mutating tools: {_MUTATING_TOOLS - names}"
 
 
 def test_enabled_tools_allowlist_overrides_read_only() -> None:
@@ -211,14 +208,14 @@ def test_allowlist_includes_mutating_tool_even_in_read_only() -> None:
 
 
 def test_all_tool_modules_have_register() -> None:
-    from airflow_mcp.tools import dags, dag_runs, pools, system, tasks, variables
+    from airflow_mcp.tools import dag_runs, dags, pools, system, tasks, variables
 
     for mod in (dags, dag_runs, pools, system, tasks, variables):
-        assert callable(getattr(mod, "register")), f"{mod.__name__}.register missing"
+        assert callable(mod.register), f"{mod.__name__}.register missing"
 
 
 def test_register_all_accepts_server() -> None:
-    server = build_server()
+    build_server()
     # Re-register against the same server would duplicate tools, so we just
     # confirm the function signature is callable with a Settings arg.
     s = Settings(username="u", password="p")
@@ -231,7 +228,7 @@ def test_register_all_accepts_server() -> None:
 
 def test_all_tool_functions_are_async() -> None:
     """Every tool function exposed by a module is a coroutine function."""
-    from airflow_mcp.tools import dags, dag_runs, pools, system, tasks, variables
+    from airflow_mcp.tools import dag_runs, dags, pools, system, tasks, variables
 
     for mod in (dags, dag_runs, pools, system, tasks, variables):
         for name, obj in vars(mod).items():

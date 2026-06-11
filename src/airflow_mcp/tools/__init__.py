@@ -7,10 +7,30 @@ filtering mutating tools out when ``read_only`` is true.
 
 from __future__ import annotations
 
-from ..config import Settings
-from . import dags, dag_runs, pools, system, tasks, variables
+from typing import Protocol
 
-__all__ = ["dags", "dag_runs", "pools", "system", "tasks", "variables"]
+from ..config import Settings
+from . import dag_runs, dags, pools, system, tasks, variables
+
+__all__ = ["dag_runs", "dags", "pools", "system", "tasks", "variables"]
+
+
+class _ToolRegister(Protocol):
+    """Protocol for per-module ``register`` functions.
+
+    Every tool submodule exposes a function of this shape — the project
+    keeps them duck-typed on purpose to avoid a heavy import-time
+    dependency on the FastMCP types in this file.
+    """
+
+    def __call__(
+        self,
+        mcp: object,
+        settings: Settings,
+        *,
+        include_mutating: bool,
+        allowlist: set[str] | None,
+    ) -> None: ...
 
 
 def register_all(mcp: object, settings: Settings) -> None:
@@ -29,11 +49,16 @@ def register_all(mcp: object, settings: Settings) -> None:
     # When an allowlist is set, it overrides read-only: the user named the
     # tools explicitly.
     include_mut = not settings.read_only if allowlist is None else True
-    kwargs = {"include_mutating": include_mut, "allowlist": allowlist}
 
-    system.register(mcp, settings, **kwargs)
-    dags.register(mcp, settings, **kwargs)
-    dag_runs.register(mcp, settings, **kwargs)
-    tasks.register(mcp, settings, **kwargs)
-    variables.register(mcp, settings, **kwargs)
-    pools.register(mcp, settings, **kwargs)
+    # Iterate through typed callables so the **kwargs forwarding below
+    # stays statically checked even though the FastMCP `mcp` arg is `object`.
+    modules: tuple[_ToolRegister, ...] = (
+        system.register,
+        dags.register,
+        dag_runs.register,
+        tasks.register,
+        variables.register,
+        pools.register,
+    )
+    for register in modules:
+        register(mcp, settings, include_mutating=include_mut, allowlist=allowlist)

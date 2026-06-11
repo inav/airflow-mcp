@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
+import httpx
 import pytest
 
 from airflow_mcp.versioning import (
-    Capabilities,
     override_api_version,
     parse_version,
     resolve_capabilities,
 )
-
 
 # ---------------------------------------------------------------------------
 # parse_version
@@ -141,10 +140,6 @@ def test_override_to_same_no_op() -> None:
 # ---------------------------------------------------------------------------
 # build_capabilities (with mocked HTTP)
 # ---------------------------------------------------------------------------
-
-
-import httpx
-import pytest
 
 
 @pytest.mark.asyncio

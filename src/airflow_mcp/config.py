@@ -53,9 +53,7 @@ class Settings(BaseSettings):
     )
     api_version: ApiVersionChoice = Field(
         default="auto",
-        description=(
-            "REST API path: 'v1', 'v2', or 'auto' (resolved from target_version)."
-        ),
+        description=("REST API path: 'v1', 'v2', or 'auto' (resolved from target_version)."),
     )
     target_version: str = Field(
         default="auto",
@@ -95,13 +93,13 @@ class Settings(BaseSettings):
 
     # --- Token economy -------------------------------------------------------
     list_page_default: int = Field(default=20, ge=1, le=100, description="Default list page size.")
-    list_page_max: int = Field(default=100, ge=1, le=1000, description="Hard cap on list page size.")
+    list_page_max: int = Field(
+        default=100, ge=1, le=1000, description="Hard cap on list page size."
+    )
     log_max_bytes: int = Field(
         default=4096, ge=256, description="Soft cap on log bytes returned per call."
     )
-    log_max_lines: int = Field(
-        default=200, ge=10, description="Max log lines returned per call."
-    )
+    log_max_lines: int = Field(default=200, ge=10, description="Max log lines returned per call.")
 
     @field_validator("enabled_tools", mode="before")
     @classmethod

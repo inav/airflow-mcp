@@ -1,0 +1,71 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+# The release job needs write access for `gh release` and `id-token: write`
+# for PyPI trusted publishing (OIDC, no API token required).
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  build:
+    name: Build sdist + wheel
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # hatch-vcs needs full history to read the tag
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: latest
+          enable-cache: true
+      - name: Build distributions
+        run: uv build
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish-pypi:
+    name: Publish to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    environment: pypi
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - name: Publish
+        uses: pypa/gh-action-pypi-publish@v1.13
+        # Trusted publishing: PyPI must be configured at
+        # https://pypi.org/manage/account/publishing/
+        # with this workflow file path and "pypi" environment name.
+        with:
+          packages-dir: dist/
+          skip-existing: true
+
+  github-release:
+    name: GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
+          draft: false
+          fail_on_unmatched_files: true

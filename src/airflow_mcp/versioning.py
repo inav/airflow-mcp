@@ -160,7 +160,7 @@ def resolve_capabilities(
     if _cmp(chosen, _V1_REMOVED) >= 0:
         api_version = "v2"
     elif _cmp(chosen, _V2_MIN) >= 0:
-        # 2.4 – 2.x supports both; default to v2 (the recommended one)
+        # 2.4 - 2.x supports both; default to v2 (the recommended one)
         # but the user can override via the explicit api_version setting.
         api_version = "v2"
     else:

@@ -12,7 +12,7 @@ from typing import Any
 import httpx
 import pytest
 
-from airflow_mcp.client import AirflowClient, build_capabilities
+from airflow_mcp.client import AirflowClient
 from airflow_mcp.config import Settings
 from airflow_mcp.errors import AirflowAPIError, AirflowAuthError, AirflowNotFoundError
 from airflow_mcp.versioning import resolve_capabilities
@@ -67,9 +67,7 @@ async def test_list_dags_v1_path() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         captured["method"] = request.method
         captured["url"] = str(request.url)
-        return httpx.Response(
-            200, json={"total_entries": 1, "dags": [{"dag_id": "x"}]}
-        )
+        return httpx.Response(200, json={"total_entries": 1, "dags": [{"dag_id": "x"}]})
 
     client = _client_with(handler, caps=_v1_caps())
     data = await client.list_dags(limit=10, only_active=True, dag_id_pattern="%ingest%")
@@ -304,9 +302,7 @@ async def test_clear_dag_run_dry_run() -> None:
         return httpx.Response(200, json=[{"task_id": "t1", "state": "failed"}])
 
     client = _client_with(handler)
-    result = await client.clear_dag_run(
-        "d", "run1", {"dry_run": True, "reset_dag_run": True}
-    )
+    result = await client.clear_dag_run("d", "run1", {"dry_run": True, "reset_dag_run": True})
     assert captured["body"]["dry_run"] is True
     assert isinstance(result, list)
     await client.aclose()

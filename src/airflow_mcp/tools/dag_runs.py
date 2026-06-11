@@ -67,7 +67,9 @@ def register(
                 logical_date_gte=logical_date_gte,
                 logical_date_lte=logical_date_lte,
                 order_by=order_by
-                or ("-logical_date" if client.capabilities.uses_logical_date else "-execution_date"),
+                or (
+                    "-logical_date" if client.capabilities.uses_logical_date else "-execution_date"
+                ),
             )
             runs = [
                 {
@@ -159,7 +161,11 @@ def register(
                 result = await client.clear_dag_run(
                     dag_id,
                     dag_run_id,
-                    {"dry_run": dry_run, "reset_dag_run": reset_dag_run, "only_failed": only_failed},
+                    {
+                        "dry_run": dry_run,
+                        "reset_dag_run": reset_dag_run,
+                        "only_failed": only_failed,
+                    },
                 )
                 if isinstance(result, list):
                     return to_json({"dry_run": dry_run, "would_clear": result})

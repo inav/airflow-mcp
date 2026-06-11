@@ -10,8 +10,9 @@ constructed with.
 from __future__ import annotations
 
 import logging
+from collections.abc import AsyncIterator, Mapping
 from contextlib import asynccontextmanager
-from typing import Any, AsyncIterator, Literal, Mapping
+from typing import Any, Literal
 from urllib.parse import urljoin
 
 import httpx
@@ -122,9 +123,7 @@ class AirflowClient:
         if method.upper() in _SAFE_METHODS and self._settings.max_retries > 0:
             retrying = AsyncRetrying(
                 stop=stop_after_attempt(self._settings.max_retries + 1),
-                wait=wait_exponential(
-                    multiplier=self._settings.retry_backoff, min=0.25, max=8.0
-                ),
+                wait=wait_exponential(multiplier=self._settings.retry_backoff, min=0.25, max=8.0),
                 retry=retry_if_exception_type((AirflowAPIError,)),
                 reraise=True,
             )
@@ -261,9 +260,7 @@ class AirflowClient:
         }
         # Airflow v1 ignores logical_date_*; v2 ignores execution_date_*.
         # We send both — Airflow will pick up the one it understands.
-        return await self._request(
-            "GET", f"dags/{dag_id}/dagRuns", params=self._strip_none(params)
-        )
+        return await self._request("GET", f"dags/{dag_id}/dagRuns", params=self._strip_none(params))
 
     async def get_dag_run(self, dag_id: str, dag_run_id: str) -> dict[str, Any]:
         run = await self._request("GET", f"dags/{dag_id}/dagRuns/{dag_run_id}")
@@ -316,9 +313,7 @@ class AirflowClient:
             params=self._strip_none(params),
         )
 
-    async def get_task_instance(
-        self, dag_id: str, dag_run_id: str, task_id: str
-    ) -> dict[str, Any]:
+    async def get_task_instance(self, dag_id: str, dag_run_id: str, task_id: str) -> dict[str, Any]:
         return await self._request(
             "GET", f"dags/{dag_id}/dagRuns/{dag_run_id}/taskInstances/{task_id}"
         )
@@ -336,15 +331,17 @@ class AirflowClient:
         url = self._api(
             f"dags/{dag_id}/dagRuns/{dag_run_id}/taskInstances/{task_id}/logs/{try_number}"
         )
-        resp = await client.get(
-            url, params={"full_content": "true" if full_content else "false"}
-        )
+        resp = await client.get(url, params={"full_content": "true" if full_content else "false"})
         if 200 <= resp.status_code < 300:
             return resp.text
         if resp.status_code in (401, 403):
-            raise AirflowAuthError("forbidden", status=resp.status_code, endpoint=url, body=resp.text)
+            raise AirflowAuthError(
+                "forbidden", status=resp.status_code, endpoint=url, body=resp.text
+            )
         if resp.status_code == 404:
-            raise AirflowNotFoundError("not found", status=resp.status_code, endpoint=url, body=resp.text)
+            raise AirflowNotFoundError(
+                "not found", status=resp.status_code, endpoint=url, body=resp.text
+            )
         raise AirflowAPIError(
             "log fetch failed", status=resp.status_code, endpoint=url, body=resp.text
         )
@@ -367,9 +364,7 @@ class AirflowClient:
     # ============================================================ Variables
 
     async def list_variables(self, *, limit: int = 50, offset: int = 0) -> dict[str, Any]:
-        return await self._request(
-            "GET", "variables", params={"limit": limit, "offset": offset}
-        )
+        return await self._request("GET", "variables", params={"limit": limit, "offset": offset})
 
     async def get_variable(self, variable_key: str) -> dict[str, Any]:
         return await self._request("GET", f"variables/{variable_key}")
@@ -462,6 +457,7 @@ async def build_capabilities(
     needs_probe = (target or "").strip().lower() in ("", "auto", "latest")
 
     if needs_probe:
+
         async def _probe(probe: httpx.AsyncClient) -> str | None:
             for path in ("api/v2/version", "api/v1/version"):
                 try:

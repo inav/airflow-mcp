@@ -6,7 +6,7 @@ from mcp.server.fastmcp import Context
 
 from ..config import Settings
 from ..versioning import Capabilities
-from ._helpers import get_capabilities, get_client, to_json, tool_errors
+from ._helpers import get_client, to_json, tool_errors
 
 
 def register(

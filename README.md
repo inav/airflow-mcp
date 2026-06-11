@@ -1,5 +1,8 @@
 # airflow-mcp
 
+[![CI](https://github.com/inav/airflow-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/inav/airflow-mcp/actions/workflows/ci.yml)
+[![Release](https://github.com/inav/airflow-mcp/actions/workflows/release.yml/badge.svg)](https://github.com/inav/airflow-mcp/actions/workflows/release.yml)
+
 A Model Context Protocol (MCP) server for **Apache Airflow 2.x and 3.x**,
 built on the [official MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk).
 
@@ -37,13 +40,34 @@ version automatically.
 
 ## Install
 
-```bash
-# from the repo root
-python3 -m venv .venv && source .venv/bin/activate
-pip install -e .
+The project uses [uv](https://docs.astral.sh/uv/) for everything — no
+manual `venv` juggling, no system-level `pip install` needed. If you don't
+have it yet:
 
-# or just install the deps for a quick try
-pip install mcp httpx pydantic pydantic-settings tenacity
+```bash
+# macOS / Linux / WSL
+curl -LsSf https://astral.sh/uv/install.sh | sh
+# Windows
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+Then, from the repo root:
+
+```bash
+# Resolves and pins every dependency into uv.lock, then installs the
+# project (including the [dev] extras) into a project-local .venv.
+uv sync --all-extras --dev
+
+# Run the MCP server from the venv without ever activating it.
+uv run airflow-mcp
+```
+
+To install the published package into an existing project:
+
+```bash
+uv add airflow-mcp
+# or, classic pip in a venv you manage yourself:
+pip install airflow-mcp
 ```
 
 Tested with Python 3.10 / 3.11 / 3.12.
@@ -236,11 +260,65 @@ Edit `~/Library/Application Support/Claude/claude_desktop_config.json`
 ## Development
 
 ```bash
-pip install -e ".[dev]"
-pytest                  # 19 tests, ~10s
-ruff check src/ tests/
-mypy src/
+# Bring up the dev environment (uses uv.lock, no surprises).
+uv sync --all-extras --dev
+
+# Run the test suite (62 tests, ~12s).
+uv run pytest
+
+# Lint + format (ruff bundles both).
+uv run ruff check src/ tests/
+uv run ruff format src/ tests/
+
+# Type-check (mypy strict-ish, see pyproject.toml for the per-code disables).
+uv run mypy src/airflow_mcp
+
+# All-in-one:
+uv run ruff check src/ tests/ && \
+  uv run ruff format --check src/ tests/ && \
+  uv run mypy src/airflow_mcp && \
+  uv run pytest
 ```
+
+## Versioning & releases
+
+The package version is **derived from git tags** by
+[`hatch-vcs`](https://github.com/jdillard/hatch-vcs) — there is no version
+string to bump in `pyproject.toml` or `__init__.py`. Just cut a tag:
+
+```bash
+# Pick one of:
+git tag v0.2.0
+git tag v0.2.1
+git tag v0.3.0
+
+git push origin --tags
+```
+
+Pushing a `vX.Y.Z` tag triggers the
+[release workflow](.github/workflows/release.yml), which:
+
+1. Builds the sdist and wheel.
+2. Publishes to PyPI via
+   [trusted publishing](https://docs.pypi.org/trusted-publishers/) (OIDC,
+   no API token to manage).
+3. Creates a GitHub Release with auto-generated notes.
+
+Versions in between tags (commits on `main`) automatically get a
+`X.Y.Z.devN+gHASH.dDATE` suffix, so every dev install is uniquely
+identifiable.
+
+### One-time PyPI setup
+
+Before the first release, configure trusted publishing at
+<https://pypi.org/manage/account/publishing/> with:
+
+- **Owner / Project**: `inav/airflow-mcp`
+- **Workflow file**: `release.yml`
+- **Environment name**: `pypi`
+
+Then create the `pypi` environment in your repo's Settings → Environments
+so the release job can request it.
 
 ## Project layout
 

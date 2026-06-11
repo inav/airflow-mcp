@@ -35,11 +35,7 @@ def register(
             return to_json(
                 {
                     "count": len(data.get("variables", [])),
-                    "variables": [
-                        v.get("key")
-                        for v in data.get("variables", [])
-                        if v.get("key")
-                    ],
+                    "variables": [v.get("key") for v in data.get("variables", []) if v.get("key")],
                 }
             )
 
@@ -64,7 +60,9 @@ def register(
 
             @mcp.tool()  # type: ignore[union-attr]
             @tool_errors
-            async def set_variable(ctx: Context, key: str, value: str, description: str = "") -> str:
+            async def set_variable(
+                ctx: Context, key: str, value: str, description: str = ""
+            ) -> str:
                 """Create or update a variable (mutating — hidden in read-only mode)."""
                 client = get_client(ctx)
                 result = await client.set_variable(key, value, description=description)

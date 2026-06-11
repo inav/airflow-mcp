@@ -43,7 +43,8 @@ def _strip_empties(value: Any) -> Any:
         return out
     if isinstance(value, list):
         return [
-            _strip_empties(v) for v in value
+            _strip_empties(v)
+            for v in value
             if v is not None and (not isinstance(v, str) or v != "")
         ]
     return value
@@ -69,9 +70,7 @@ def get_client(ctx: Any) -> AirflowClient:
     try:
         return ctx.request_context.lifespan_context["airflow"]  # type: ignore[no-any-return]
     except (AttributeError, KeyError) as exc:
-        raise RuntimeError(
-            "Airflow client is not initialised — did the server start?"
-        ) from exc
+        raise RuntimeError("Airflow client is not initialised — did the server start?") from exc
 
 
 def get_settings(ctx: Any):  # type: ignore[no-untyped-def]
@@ -79,9 +78,7 @@ def get_settings(ctx: Any):  # type: ignore[no-untyped-def]
     try:
         return ctx.request_context.lifespan_context["settings"]  # type: ignore[no-any-return]
     except (AttributeError, KeyError) as exc:
-        raise RuntimeError(
-            "Settings are not initialised — did the server start?"
-        ) from exc
+        raise RuntimeError("Settings are not initialised — did the server start?") from exc
 
 
 def get_capabilities(ctx: Any):  # type: ignore[no-untyped-def]
@@ -89,9 +86,7 @@ def get_capabilities(ctx: Any):  # type: ignore[no-untyped-def]
     try:
         return ctx.request_context.lifespan_context["capabilities"]  # type: ignore[no-any-return]
     except (AttributeError, KeyError) as exc:
-        raise RuntimeError(
-            "Capabilities are not initialised — did the server start?"
-        ) from exc
+        raise RuntimeError("Capabilities are not initialised — did the server start?") from exc
 
 
 def tool_errors(
